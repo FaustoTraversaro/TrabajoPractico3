@@ -1,0 +1,81 @@
+import numpy as np
+import matplotlib.pyplot as plt
+from PIL import Image
+
+class HopfieldNetwork:
+    def __init__(self, num_neurons):
+        self.num_neurons = num_neurons
+        self.weights = np.zeros((num_neurons, num_neurons))
+
+    def train(self, patterns):
+        num_patterns = len(patterns)
+        for pattern in patterns:
+            pattern = np.array(pattern)
+            self.weights += np.outer(pattern, pattern)
+        self.weights /= num_patterns
+        np.fill_diagonal(self.weights, 0)
+
+    def recall(self, pattern, max_iterations=100):
+        pattern = np.array(pattern)
+        for _ in range(max_iterations):
+            old_pattern = np.copy(pattern)
+            pattern = np.sign(np.dot(self.weights, pattern))
+            if np.array_equal(pattern, old_pattern):
+                break
+        return pattern
+
+# las rutas a las imágenes de entrenamiento y prueba
+train_image_paths = [
+    'Motor1.jpeg',
+    'Motor2.jpeg',
+    'Motor3.jpg',
+    'Motor4.jpg'
+]
+test_image_path = 'MotorOriginal.jpeg'
+
+# aca carga y preprocesa las imágenes de entrenamiento
+train_images = [Image.open(path).convert('L') for path in train_image_paths]
+test_image = Image.open(test_image_path).convert('L')
+
+# les doy un tamaño fijo a las imagenes
+image_size = (64, 64)
+train_images_resized = [image.resize(image_size) for image in train_images]
+test_image_resized = test_image.resize(image_size)
+
+# aca convierte las imágenes a patrones binarios
+train_patterns = [np.array(image) for image in train_images_resized]
+test_pattern = np.array(test_image_resized)
+train_patterns_binary = [np.where(pattern < 128, -1, 1) for pattern in train_patterns]
+test_pattern_binary = np.where(test_pattern < 128, -1, 1)
+
+# se muestran las imágenes de entrenamiento y prueba
+plt.figure(figsize=(10, 4))
+for i, pattern in enumerate(train_patterns_binary): 
+    plt.subplot(2, len(train_patterns_binary), i+1)
+    plt.imshow(pattern, cmap='bone')
+    plt.title(f'Imagen de entrenamiento {i+1}')
+plt.subplot(2, len(train_patterns_binary), len(train_patterns_binary)+1)
+plt.imshow(test_pattern_binary, cmap='bone')
+plt.title('Imagen de Prueba')
+plt.show()
+
+train_patterns_flat = [pattern.flatten() for pattern in train_patterns_binary]
+test_pattern_flat = test_pattern_binary.flatten()
+
+# se inicializa y entrena a la red Hopfield
+network = HopfieldNetwork(len(train_patterns_flat[0]))
+network.train(train_patterns_flat)
+
+recovered_pattern_flat = network.recall(test_pattern_flat)
+
+recovered_pattern = recovered_pattern_flat.reshape(test_pattern_binary.shape)
+
+# por ultimo, se muestra la imagen original y la imagen recuperada
+plt.figure(figsize=(10, 4))
+plt.subplot(1, 2, 1)
+plt.imshow(test_pattern_binary, cmap='bone')
+plt.title('Imagen Original')
+plt.subplot(1, 2, 2)
+plt.imshow(recovered_pattern, cmap='bone')
+plt.title('Imagen Restaurada')
+plt.show()
